@@ -5,15 +5,18 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { initDatabase } = require('./database/init');
-const { startEmailListener } = require('./services/emailReceiver');
+const { startSMTPServer } = require('./mail-server/smtp-server');
+const { startIMAPServer } = require('./mail-server/imap-server');
 
 // 导入路由
-const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const apiRoutes = require('./routes/api');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SMTP_PORT = process.env.SMTP_PORT || 25;
+const IMAP_PORT = process.env.IMAP_PORT || 143;
 
 // 安全中间件
 app.use(helmet());
@@ -21,7 +24,7 @@ app.use(helmet());
 // 速率限制
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分钟
-  max: 100 // 限制每个IP 15分钟内最多100个请求
+  max: 100
 });
 app.use('/api', limiter);
 
@@ -30,7 +33,7 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// 静态文件服务 - 提供管理端页面
+// 静态文件服务
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API路由
@@ -45,7 +48,15 @@ app.get('/admin/*', (req, res) => {
 
 // 健康检查
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    services: {
+      web: 'running',
+      smtp: process.env.SMTP_STATUS || 'unknown',
+      imap: process.env.IMAP_STATUS || 'unknown'
+    }
+  });
 });
 
 // 错误处理中间件
@@ -62,30 +73,64 @@ app.use((req, res) => {
   res.status(404).json({ error: '接口不存在' });
 });
 
-// 启动服务器
-async function startServer() {
+// 启动所有服务
+async function startAllServices() {
   try {
+    console.log('🚀 启动域名邮件服务器系统...\n');
+    
     // 初始化数据库
+    console.log('📊 初始化数据库...');
     await initDatabase();
-    console.log('✅ 数据库初始化完成');
+    console.log('✅ 数据库初始化完成\n');
     
-    // 启动邮件监听服务
-    await startEmailListener();
-    console.log('✅ 邮件监听服务启动');
+    // 启动SMTP服务器
+    console.log('📧 启动SMTP服务器...');
+    await startSMTPServer(SMTP_PORT);
+    process.env.SMTP_STATUS = 'running';
+    console.log(`✅ SMTP服务器启动成功 (端口: ${SMTP_PORT})\n`);
     
-    // 启动HTTP服务器
+    // 启动IMAP服务器
+    console.log('📥 启动IMAP服务器...');
+    await startIMAPServer(IMAP_PORT);
+    process.env.IMAP_STATUS = 'running';
+    console.log(`✅ IMAP服务器启动成功 (端口: ${IMAP_PORT})\n`);
+    
+    // 启动Web管理服务器
+    console.log('🌐 启动Web管理服务器...');
     app.listen(PORT, () => {
-      console.log(`🚀 邮件系统服务器启动成功`);
-      console.log(`🌐 服务地址: http://localhost:${PORT}`);
-      console.log(`⚙️  管理界面: http://localhost:${PORT}/admin`);
-      console.log(`📧 API文档: http://localhost:${PORT}/api/docs`);
+      console.log(`✅ Web管理服务器启动成功 (端口: ${PORT})\n`);
+      
+      console.log('🎉 域名邮件服务器系统启动完成！');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`📧 SMTP服务器: localhost:${SMTP_PORT}`);
+      console.log(`📥 IMAP服务器: localhost:${IMAP_PORT}`);
+      console.log(`🌐 管理界面:   http://localhost:${PORT}/admin`);
+      console.log(`📡 API地址:    http://localhost:${PORT}/api`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('\n⚠️  下一步配置：');
+      console.log('1. 配置域名DNS记录');
+      console.log('2. 在管理界面创建邮箱账户');
+      console.log('3. 测试邮件收发功能');
+      console.log('\n📖 详细配置请查看 README.md');
     });
+    
   } catch (error) {
     console.error('❌ 服务器启动失败:', error);
     process.exit(1);
   }
 }
 
-startServer();
+// 优雅关闭
+process.on('SIGINT', () => {
+  console.log('\n🛑 正在关闭邮件服务器...');
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n🛑 正在关闭邮件服务器...');
+  process.exit(0);
+});
+
+startAllServices();
 
 module.exports = app; 

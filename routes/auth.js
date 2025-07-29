@@ -61,7 +61,7 @@ router.get('/admin/token', (req, res) => {
       }
 
       res.json({
-        token: row?.config_value || 'admin123456',
+        token: row?.config_value || 'mail-admin-2023',
         message: '这是开发环境下的默认令牌，生产环境请修改'
       });
     }

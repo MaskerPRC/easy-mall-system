@@ -20,25 +20,31 @@ createApp({
       // 标签页配置
       tabs: [
         { id: 'dashboard', name: '仪表板', icon: 'fas fa-tachometer-alt' },
+        { id: 'domains', name: '域名管理', icon: 'fas fa-globe' },
+        { id: 'accounts', name: '邮箱账户', icon: 'fas fa-user-circle' },
         { id: 'emails', name: '邮件列表', icon: 'fas fa-envelope' },
-        { id: 'accounts', name: '账户管理', icon: 'fas fa-user-cog' },
         { id: 'webhooks', name: 'Webhook', icon: 'fas fa-link' },
-        { id: 'settings', name: '系统配置', icon: 'fas fa-cog' }
+        { id: 'settings', name: '系统设置', icon: 'fas fa-cog' }
       ],
       
       // 统计数据
       stats: {},
       
-      // 邮件数据
-      emails: [],
-      emailPagination: { current: 1, total: 1, count: 0, limit: 20 },
-      emailFilters: { direction: '', status: '', search: '', accountId: '' },
-      searchTimeout: null,
+      // 域名数据
+      domains: [],
+      showDomainForm: false,
+      editingDomain: null,
       
       // 账户数据
       accounts: [],
       showAccountForm: false,
       editingAccount: null,
+      
+      // 邮件数据
+      emails: [],
+      emailPagination: { current: 1, total: 1, count: 0, limit: 20 },
+      emailFilters: { search: '', accountId: '', folder: '' },
+      emailSearchTimeout: null,
       
       // Webhook数据
       webhooks: [],
@@ -58,11 +64,11 @@ createApp({
     // ============ 认证相关 ============
     
     checkAuth() {
-      const savedToken = localStorage.getItem('admin_token');
+      const savedToken = localStorage.getItem('mail_admin_token');
       if (savedToken) {
         this.token = savedToken;
         this.isAuthenticated = true;
-        this.loadData();
+        this.loadAllData();
       }
     },
     
@@ -83,8 +89,8 @@ createApp({
         if (response.data.success) {
           this.token = this.loginToken;
           this.isAuthenticated = true;
-          localStorage.setItem('admin_token', this.token);
-          this.loadData();
+          localStorage.setItem('mail_admin_token', this.token);
+          this.loadAllData();
         }
       } catch (error) {
         this.loginError = error.response?.data?.message || '登录失败';
@@ -96,7 +102,7 @@ createApp({
     logout() {
       this.isAuthenticated = false;
       this.token = '';
-      localStorage.removeItem('admin_token');
+      localStorage.removeItem('mail_admin_token');
       this.loginToken = '';
       this.loginError = '';
     },
@@ -122,11 +128,12 @@ createApp({
     
     // ============ 数据加载 ============
     
-    async loadData() {
+    async loadAllData() {
       await Promise.all([
         this.loadStats(),
-        this.loadEmails(),
+        this.loadDomains(),
         this.loadAccounts(),
+        this.loadEmails(),
         this.loadWebhooks()
       ]);
     },
@@ -137,6 +144,24 @@ createApp({
         this.stats = response.data.data;
       } catch (error) {
         console.error('加载统计数据失败:', error);
+      }
+    },
+    
+    async loadDomains() {
+      try {
+        const response = await this.apiCall('GET', '/admin/domains');
+        this.domains = response.data.data;
+      } catch (error) {
+        console.error('加载域名列表失败:', error);
+      }
+    },
+    
+    async loadAccounts() {
+      try {
+        const response = await this.apiCall('GET', '/admin/accounts');
+        this.accounts = response.data.data;
+      } catch (error) {
+        console.error('加载账户列表失败:', error);
       }
     },
     
@@ -162,15 +187,6 @@ createApp({
       }
     },
     
-    async loadAccounts() {
-      try {
-        const response = await this.apiCall('GET', '/admin/accounts');
-        this.accounts = response.data.data;
-      } catch (error) {
-        console.error('加载账户列表失败:', error);
-      }
-    },
-    
     async loadWebhooks() {
       try {
         const response = await this.apiCall('GET', '/admin/webhooks');
@@ -180,44 +196,25 @@ createApp({
       }
     },
     
-    // ============ 邮件相关 ============
+    // ============ 域名管理 ============
     
-    refreshEmails() {
-      this.loadEmails(1);
+    editDomain(domain) {
+      this.editingDomain = { ...domain };
+      this.showDomainForm = true;
     },
     
-    changePage(page) {
-      if (page >= 1 && page <= this.emailPagination.total) {
-        this.loadEmails(page);
-      }
-    },
-    
-    getPageNumbers() {
-      const current = this.emailPagination.current;
-      const total = this.emailPagination.total;
-      const pages = [];
-      
-      // 显示当前页前后2页
-      const start = Math.max(1, current - 2);
-      const end = Math.min(total, current + 2);
-      
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
+    async deleteDomain(domain) {
+      if (!confirm(`确定要删除域名 ${domain.domain} 吗？`)) {
+        return;
       }
       
-      return pages;
-    },
-    
-    debounceSearch() {
-      clearTimeout(this.searchTimeout);
-      this.searchTimeout = setTimeout(() => {
-        this.refreshEmails();
-      }, 500);
-    },
-    
-    viewEmail(email) {
-      // 这里可以实现邮件详情查看功能
-      alert(`查看邮件: ${email.subject}`);
+      try {
+        await this.apiCall('DELETE', `/admin/domains/${domain.id}`);
+        this.showNotification('域名删除成功', 'success');
+        this.loadDomains();
+      } catch (error) {
+        this.showNotification(error.response?.data?.error || '删除域名失败', 'error');
+      }
     },
     
     // ============ 账户管理 ============
@@ -228,7 +225,12 @@ createApp({
     },
     
     async deleteAccount(account) {
-      if (!confirm(`确定要删除账户 ${account.email} 吗？`)) {
+      if (account.is_admin) {
+        this.showNotification('无法删除管理员账户', 'error');
+        return;
+      }
+      
+      if (!confirm(`确定要删除账户 ${account.email} 吗？此操作将删除该账户的所有邮件。`)) {
         return;
       }
       
@@ -237,8 +239,47 @@ createApp({
         this.showNotification('账户删除成功', 'success');
         this.loadAccounts();
       } catch (error) {
-        this.showNotification('删除账户失败', 'error');
+        this.showNotification(error.response?.data?.error || '删除账户失败', 'error');
       }
+    },
+    
+    // ============ 邮件管理 ============
+    
+    refreshEmails() {
+      this.loadEmails(1);
+    },
+    
+    changeEmailPage(page) {
+      if (page >= 1 && page <= this.emailPagination.total) {
+        this.loadEmails(page);
+      }
+    },
+    
+    getPageNumbers() {
+      const current = this.emailPagination.current;
+      const total = this.emailPagination.total;
+      const pages = [];
+      
+      const start = Math.max(1, current - 2);
+      const end = Math.min(total, current + 2);
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      return pages;
+    },
+    
+    debounceEmailSearch() {
+      clearTimeout(this.emailSearchTimeout);
+      this.emailSearchTimeout = setTimeout(() => {
+        this.refreshEmails();
+      }, 500);
+    },
+    
+    viewEmail(email) {
+      // 这里可以实现邮件详情查看功能
+      alert(`查看邮件: ${email.subject}`);
     },
     
     // ============ Webhook管理 ============
@@ -293,7 +334,7 @@ createApp({
         
         if (response.data.success) {
           this.token = this.tokenForm.newToken;
-          localStorage.setItem('admin_token', this.token);
+          localStorage.setItem('mail_admin_token', this.token);
           this.tokenForm = { currentToken: '', newToken: '' };
           this.showNotification('令牌更新成功', 'success');
         }
@@ -306,10 +347,23 @@ createApp({
     
     // ============ 工具函数 ============
     
+    refreshAll() {
+      this.loadAllData();
+      this.showNotification('数据刷新完成', 'success');
+    },
+    
     formatDate(dateString) {
       if (!dateString) return '-';
       const date = new Date(dateString);
       return date.toLocaleString('zh-CN');
+    },
+    
+    formatFileSize(bytes) {
+      if (!bytes) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     },
     
     truncateText(text, maxLength) {
@@ -317,35 +371,40 @@ createApp({
       return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
     },
     
-    getStatusClass(status) {
+    getFolderClass(folder) {
       const classes = {
-        'pending': 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800',
-        'sent': 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800',
-        'failed': 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800',
-        'received': 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800'
+        'INBOX': 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800',
+        'Sent': 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800',
+        'Drafts': 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800',
+        'Trash': 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800',
+        'Spam': 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800'
       };
-      return classes[status] || 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800';
-    },
-    
-    getStatusText(status) {
-      const texts = {
-        'pending': '待发送',
-        'sent': '已发送',
-        'failed': '发送失败',
-        'received': '已接收'
-      };
-      return texts[status] || status;
+      return classes[folder] || 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800';
     },
     
     showNotification(message, type = 'info') {
-      // 简单的通知实现
       const notification = document.createElement('div');
-      notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg ${
-        type === 'success' ? 'bg-green-100 text-green-800' :
-        type === 'error' ? 'bg-red-100 text-red-800' :
-        'bg-blue-100 text-blue-800'
+      notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm ${
+        type === 'success' ? 'bg-green-100 border border-green-400 text-green-800' :
+        type === 'error' ? 'bg-red-100 border border-red-400 text-red-800' :
+        'bg-blue-100 border border-blue-400 text-blue-800'
       }`;
-      notification.textContent = message;
+      
+      notification.innerHTML = `
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm font-medium">${message}</p>
+          </div>
+          <div class="ml-auto pl-3">
+            <button class="text-gray-400 hover:text-gray-600" onclick="this.parentElement.parentElement.parentElement.remove()">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+      `;
       
       document.body.appendChild(notification);
       
@@ -353,7 +412,7 @@ createApp({
         if (notification.parentNode) {
           notification.parentNode.removeChild(notification);
         }
-      }, 3000);
+      }, 5000);
     }
   }
 }).mount('#app'); 

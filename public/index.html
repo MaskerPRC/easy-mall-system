@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Easy Mail System - 管理端</title>
+  <title>域名邮件服务器 - 管理端</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
@@ -15,17 +15,6 @@
     .fade-enter-from, .fade-leave-to {
       opacity: 0;
     }
-    .slide-fade-enter-active {
-      transition: all 0.3s ease-out;
-    }
-    .slide-fade-leave-active {
-      transition: all 0.3s cubic-bezier(1.0, 0.5, 0.8, 1.0);
-    }
-    .slide-fade-enter-from,
-    .slide-fade-leave-to {
-      transform: translateX(20px);
-      opacity: 0;
-    }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -35,8 +24,8 @@
       <div class="max-w-md w-full space-y-8">
         <div>
           <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            <i class="fas fa-envelope text-blue-600"></i>
-            Easy Mail System
+            <i class="fas fa-server text-blue-600"></i>
+            域名邮件服务器
           </h2>
           <p class="mt-2 text-center text-sm text-gray-600">
             管理员登录
@@ -51,7 +40,7 @@
               type="password" 
               required 
               class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
-              placeholder="请输入访问令牌"
+              placeholder="请输入管理员令牌"
             >
           </div>
           <div v-if="loginError" class="text-red-600 text-sm text-center">
@@ -79,8 +68,8 @@
           <div class="flex justify-between h-16">
             <div class="flex">
               <div class="flex-shrink-0 flex items-center">
-                <i class="fas fa-envelope text-blue-600 text-xl mr-2"></i>
-                <h1 class="text-xl font-semibold text-gray-900">Easy Mail System</h1>
+                <i class="fas fa-server text-blue-600 text-xl mr-2"></i>
+                <h1 class="text-xl font-semibold text-gray-900">域名邮件服务器</h1>
               </div>
               <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <button 
@@ -102,7 +91,7 @@
             <div class="hidden sm:ml-6 sm:flex sm:items-center">
               <div class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm mr-4">
                 <i class="fas fa-circle text-xs mr-1"></i>
-                在线
+                运行中
               </div>
               <button 
                 @click="logout"
@@ -124,7 +113,39 @@
               <div class="p-5">
                 <div class="flex items-center">
                   <div class="flex-shrink-0">
-                    <i class="fas fa-envelope text-blue-600 text-2xl"></i>
+                    <i class="fas fa-globe text-blue-600 text-2xl"></i>
+                  </div>
+                  <div class="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt class="text-sm font-medium text-gray-500 truncate">管理域名</dt>
+                      <dd class="text-lg font-medium text-gray-900">{{ stats.totalDomains || 0 }}</dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+              <div class="p-5">
+                <div class="flex items-center">
+                  <div class="flex-shrink-0">
+                    <i class="fas fa-user-circle text-green-600 text-2xl"></i>
+                  </div>
+                  <div class="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt class="text-sm font-medium text-gray-500 truncate">邮箱账户</dt>
+                      <dd class="text-lg font-medium text-gray-900">{{ stats.activeAccounts || 0 }}/{{ stats.totalAccounts || 0 }}</dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+              <div class="p-5">
+                <div class="flex items-center">
+                  <div class="flex-shrink-0">
+                    <i class="fas fa-envelope text-purple-600 text-2xl"></i>
                   </div>
                   <div class="ml-5 w-0 flex-1">
                     <dl>
@@ -140,44 +161,12 @@
               <div class="p-5">
                 <div class="flex items-center">
                   <div class="flex-shrink-0">
-                    <i class="fas fa-paper-plane text-green-600 text-2xl"></i>
+                    <i class="fas fa-link text-orange-600 text-2xl"></i>
                   </div>
                   <div class="ml-5 w-0 flex-1">
                     <dl>
-                      <dt class="text-sm font-medium text-gray-500 truncate">已发送</dt>
-                      <dd class="text-lg font-medium text-gray-900">{{ stats.sentEmails || 0 }}</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-              <div class="p-5">
-                <div class="flex items-center">
-                  <div class="flex-shrink-0">
-                    <i class="fas fa-inbox text-purple-600 text-2xl"></i>
-                  </div>
-                  <div class="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt class="text-sm font-medium text-gray-500 truncate">已接收</dt>
-                      <dd class="text-lg font-medium text-gray-900">{{ stats.receivedEmails || 0 }}</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-              <div class="p-5">
-                <div class="flex items-center">
-                  <div class="flex-shrink-0">
-                    <i class="fas fa-user-circle text-orange-600 text-2xl"></i>
-                  </div>
-                  <div class="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt class="text-sm font-medium text-gray-500 truncate">邮件账户</dt>
-                      <dd class="text-lg font-medium text-gray-900">{{ stats.activeAccounts || 0 }}/{{ stats.totalAccounts || 0 }}</dd>
+                      <dt class="text-sm font-medium text-gray-500 truncate">Webhook</dt>
+                      <dd class="text-lg font-medium text-gray-900">{{ stats.totalWebhooks || 0 }}</dd>
                     </dl>
                   </div>
                 </div>
@@ -188,8 +177,227 @@
           <!-- 内容区域 -->
           <div class="bg-white shadow rounded-lg">
             <div class="px-4 py-5 sm:p-6">
+              
+              <!-- 仪表板 -->
+              <div v-if="activeTab === 'dashboard'">
+                <h2 class="text-xl font-semibold text-gray-900 mb-6">系统概览</h2>
+                
+                <div class="space-y-6">
+                  <!-- 服务状态 -->
+                  <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">服务状态</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div class="flex items-center">
+                        <div class="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                        <span class="text-sm text-gray-600">SMTP服务器</span>
+                      </div>
+                      <div class="flex items-center">
+                        <div class="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                        <span class="text-sm text-gray-600">IMAP服务器</span>
+                      </div>
+                      <div class="flex items-center">
+                        <div class="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                        <span class="text-sm text-gray-600">Web管理</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 快速操作 -->
+                  <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">快速操作</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <button @click="activeTab = 'domains'" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">
+                        <i class="fas fa-plus mr-2"></i>添加域名
+                      </button>
+                      <button @click="activeTab = 'accounts'" class="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700">
+                        <i class="fas fa-user-plus mr-2"></i>创建邮箱
+                      </button>
+                      <button @click="activeTab = 'webhooks'" class="bg-purple-600 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-700">
+                        <i class="fas fa-link mr-2"></i>配置Webhook
+                      </button>
+                      <button @click="refreshAll" class="bg-gray-600 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-700">
+                        <i class="fas fa-sync-alt mr-2"></i>刷新数据
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- DNS配置提示 -->
+                  <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                    <div class="flex">
+                      <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                      </div>
+                      <div class="ml-3">
+                        <p class="text-sm text-yellow-700">
+                          <strong>重要提醒：</strong>请确保已正确配置域名的DNS记录，包括MX记录、SPF记录等。
+                          <a href="#" @click="activeTab = 'settings'" class="underline">查看配置指南</a>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 域名管理 -->
+              <div v-else-if="activeTab === 'domains'">
+                <div class="sm:flex sm:items-center mb-6">
+                  <div class="sm:flex-auto">
+                    <h2 class="text-xl font-semibold text-gray-900">域名管理</h2>
+                    <p class="mt-2 text-sm text-gray-700">管理邮件服务器的域名配置</p>
+                  </div>
+                  <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+                    <button 
+                      @click="showDomainForm = true"
+                      class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                    >
+                      <i class="fas fa-plus mr-2"></i>
+                      添加域名
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 域名列表 -->
+                <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                  <table class="min-w-full divide-y divide-gray-300">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">域名</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">MX记录</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SPF记录</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <tr v-for="domain in domains" :key="domain.id" class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {{ domain.domain }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {{ domain.mx_record || '-' }}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                          {{ domain.spf_record ? truncateText(domain.spf_record, 50) : '-' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                          <span :class="[
+                            'inline-flex px-2 py-1 text-xs font-semibold rounded-full',
+                            domain.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          ]">
+                            {{ domain.is_active ? '启用' : '禁用' }}
+                          </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {{ formatDate(domain.created_at) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                          <button 
+                            @click="editDomain(domain)"
+                            class="text-blue-600 hover:text-blue-900"
+                          >
+                            编辑
+                          </button>
+                          <button 
+                            @click="deleteDomain(domain)"
+                            class="text-red-600 hover:text-red-900"
+                          >
+                            删除
+                          </button>
+                        </td>
+                      </tr>
+                      <tr v-if="domains.length === 0">
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                          暂无域名配置
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 邮箱账户管理 -->
+              <div v-else-if="activeTab === 'accounts'">
+                <div class="sm:flex sm:items-center mb-6">
+                  <div class="sm:flex-auto">
+                    <h2 class="text-xl font-semibold text-gray-900">邮箱账户</h2>
+                    <p class="mt-2 text-sm text-gray-700">管理域名下的邮箱账户</p>
+                  </div>
+                  <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+                    <button 
+                      @click="showAccountForm = true"
+                      class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+                    >
+                      <i class="fas fa-plus mr-2"></i>
+                      创建账户
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 账户列表 -->
+                <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                  <table class="min-w-full divide-y divide-gray-300">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">邮箱地址</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">显示名称</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">域名</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">配额</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <tr v-for="account in accounts" :key="account.id" class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {{ account.email }}
+                          <span v-if="account.is_admin" class="ml-2 inline-flex px-1 py-0 text-xs font-semibold rounded bg-red-100 text-red-800">管理员</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {{ account.display_name || '-' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {{ account.domain }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {{ account.used_mb || 0 }}MB / {{ account.quota_mb }}MB
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                          <span :class="[
+                            'inline-flex px-2 py-1 text-xs font-semibold rounded-full',
+                            account.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          ]">
+                            {{ account.is_active ? '启用' : '禁用' }}
+                          </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                          <button 
+                            @click="editAccount(account)"
+                            class="text-blue-600 hover:text-blue-900"
+                          >
+                            编辑
+                          </button>
+                          <button 
+                            @click="deleteAccount(account)"
+                            class="text-red-600 hover:text-red-900"
+                            :disabled="account.is_admin"
+                          >
+                            删除
+                          </button>
+                        </td>
+                      </tr>
+                      <tr v-if="accounts.length === 0">
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                          暂无邮箱账户
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <!-- 邮件列表 -->
-              <div v-if="activeTab === 'emails'">
+              <div v-else-if="activeTab === 'emails'">
                 <div class="sm:flex sm:items-center mb-6">
                   <div class="sm:flex-auto">
                     <h2 class="text-xl font-semibold text-gray-900">邮件列表</h2>
@@ -207,34 +415,33 @@
                 </div>
 
                 <!-- 筛选器 -->
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-4 mb-6">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700">方向</label>
-                    <select v-model="emailFilters.direction" @change="refreshEmails" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-                      <option value="">全部</option>
-                      <option value="incoming">接收</option>
-                      <option value="outgoing">发送</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700">状态</label>
-                    <select v-model="emailFilters.status" @change="refreshEmails" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-                      <option value="">全部</option>
-                      <option value="pending">待发送</option>
-                      <option value="sent">已发送</option>
-                      <option value="failed">发送失败</option>
-                      <option value="received">已接收</option>
-                    </select>
-                  </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
                   <div>
                     <label class="block text-sm font-medium text-gray-700">搜索</label>
                     <input 
                       v-model="emailFilters.search" 
-                      @input="debounceSearch"
+                      @input="debounceEmailSearch"
                       type="text" 
                       placeholder="主题、发件人、收件人" 
                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                     >
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700">账户</label>
+                    <select v-model="emailFilters.accountId" @change="refreshEmails" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                      <option value="">全部账户</option>
+                      <option v-for="account in accounts" :key="account.id" :value="account.id">{{ account.email }}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700">文件夹</label>
+                    <select v-model="emailFilters.folder" @change="refreshEmails" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                      <option value="">全部文件夹</option>
+                      <option value="INBOX">收件箱</option>
+                      <option value="Sent">已发送</option>
+                      <option value="Drafts">草稿</option>
+                      <option value="Trash">垃圾箱</option>
+                    </select>
                   </div>
                 </div>
 
@@ -243,42 +450,40 @@
                   <table class="min-w-full divide-y divide-gray-300">
                     <thead class="bg-gray-50">
                       <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">时间</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">方向</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">发件人</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">收件人</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">主题</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">状态</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">操作</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">文件夹</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">发件人</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">收件人</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">主题</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">大小</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
                       </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                       <tr v-for="email in emails" :key="email.id" class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {{ formatDate(email.created_at) }}
+                          {{ formatDate(email.received_at) }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                          <span :class="[
-                            'inline-flex px-2 py-1 text-xs font-semibold rounded-full',
-                            email.direction === 'incoming' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                          ]">
-                            <i :class="email.direction === 'incoming' ? 'fas fa-inbox' : 'fas fa-paper-plane'" class="mr-1"></i>
-                            {{ email.direction === 'incoming' ? '接收' : '发送' }}
+                          <span :class="getFolderClass(email.folder)">
+                            {{ email.folder }}
                           </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {{ truncateText(email.from_address, 30) }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {{ truncateText(email.to_address, 30) }}
+                          {{ truncateText(email.to_addresses ? email.to_addresses.join(', ') : '', 30) }}
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-900">
                           {{ truncateText(email.subject, 40) }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                          <span :class="getStatusClass(email.status)">
-                            {{ getStatusText(email.status) }}
+                          <span v-if="email.attachments && email.attachments.length > 0" class="ml-2">
+                            <i class="fas fa-paperclip text-gray-400"></i>
                           </span>
+                          <span v-if="!email.is_read" class="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {{ formatFileSize(email.size_bytes) }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <button 
@@ -302,14 +507,14 @@
                 <div v-if="emailPagination.total > 1" class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
                   <div class="flex-1 flex justify-between sm:hidden">
                     <button 
-                      @click="changePage(emailPagination.current - 1)"
+                      @click="changeEmailPage(emailPagination.current - 1)"
                       :disabled="emailPagination.current <= 1"
                       class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100"
                     >
                       上一页
                     </button>
                     <button 
-                      @click="changePage(emailPagination.current + 1)"
+                      @click="changeEmailPage(emailPagination.current + 1)"
                       :disabled="emailPagination.current >= emailPagination.total"
                       class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100"
                     >
@@ -327,7 +532,7 @@
                         <button 
                           v-for="page in getPageNumbers()" 
                           :key="page"
-                          @click="changePage(page)"
+                          @click="changeEmailPage(page)"
                           :class="[
                             'relative inline-flex items-center px-4 py-2 border text-sm font-medium',
                             page === emailPagination.current 
@@ -343,90 +548,12 @@
                 </div>
               </div>
 
-              <!-- 账户管理 -->
-              <div v-else-if="activeTab === 'accounts'">
-                <div class="sm:flex sm:items-center mb-6">
-                  <div class="sm:flex-auto">
-                    <h2 class="text-xl font-semibold text-gray-900">邮件账户</h2>
-                    <p class="mt-2 text-sm text-gray-700">管理邮件账户配置</p>
-                  </div>
-                  <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-                    <button 
-                      @click="showAccountForm = true"
-                      class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-                    >
-                      <i class="fas fa-plus mr-2"></i>
-                      添加账户
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 账户列表 -->
-                <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                  <table class="min-w-full divide-y divide-gray-300">
-                    <thead class="bg-gray-50">
-                      <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">邮箱地址</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">SMTP服务器</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">IMAP服务器</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">状态</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">创建时间</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                      <tr v-for="account in accounts" :key="account.id" class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {{ account.email }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {{ account.smtp_host }}:{{ account.smtp_port }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {{ account.imap_host }}:{{ account.imap_port }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                          <span :class="[
-                            'inline-flex px-2 py-1 text-xs font-semibold rounded-full',
-                            account.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          ]">
-                            {{ account.is_active ? '启用' : '禁用' }}
-                          </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {{ formatDate(account.created_at) }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button 
-                            @click="editAccount(account)"
-                            class="text-blue-600 hover:text-blue-900"
-                          >
-                            编辑
-                          </button>
-                          <button 
-                            @click="deleteAccount(account)"
-                            class="text-red-600 hover:text-red-900"
-                          >
-                            删除
-                          </button>
-                        </td>
-                      </tr>
-                      <tr v-if="accounts.length === 0">
-                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">
-                          暂无邮件账户
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
               <!-- Webhook配置 -->
               <div v-else-if="activeTab === 'webhooks'">
                 <div class="sm:flex sm:items-center mb-6">
                   <div class="sm:flex-auto">
                     <h2 class="text-xl font-semibold text-gray-900">Webhook配置</h2>
-                    <p class="mt-2 text-sm text-gray-700">配置邮件接收后的回调地址</p>
+                    <p class="mt-2 text-sm text-gray-700">配置邮件事件的回调地址</p>
                   </div>
                   <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
                     <button 
@@ -444,12 +571,12 @@
                   <table class="min-w-full divide-y divide-gray-300">
                     <thead class="bg-gray-50">
                       <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">名称</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">URL</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">方法</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">状态</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">创建时间</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">操作</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">名称</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">URL</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">事件</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
                       </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -461,8 +588,8 @@
                           {{ truncateText(webhook.url, 50) }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                            {{ webhook.method }}
+                          <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                            {{ webhook.trigger_events }}
                           </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -507,14 +634,61 @@
                 </div>
               </div>
 
-              <!-- 系统配置 -->
+              <!-- 系统设置 -->
               <div v-else-if="activeTab === 'settings'">
-                <h2 class="text-xl font-semibold text-gray-900 mb-6">系统配置</h2>
+                <h2 class="text-xl font-semibold text-gray-900 mb-6">系统设置</h2>
                 
-                <div class="space-y-6">
-                  <!-- API令牌配置 -->
+                <div class="space-y-8">
+                  <!-- DNS配置指南 -->
                   <div class="bg-white border rounded-lg p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">API访问令牌</h3>
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">DNS配置指南</h3>
+                    <div class="space-y-4">
+                      <div>
+                        <h4 class="font-medium text-gray-900">MX记录配置</h4>
+                        <p class="text-sm text-gray-600 mb-2">在您的域名DNS设置中添加以下MX记录：</p>
+                        <code class="bg-gray-100 px-2 py-1 rounded text-sm">@ MX 10 your-server-ip-or-domain</code>
+                      </div>
+                      
+                      <div>
+                        <h4 class="font-medium text-gray-900">SPF记录配置</h4>
+                        <p class="text-sm text-gray-600 mb-2">添加TXT记录以防止邮件被标记为垃圾邮件：</p>
+                        <code class="bg-gray-100 px-2 py-1 rounded text-sm">@ TXT "v=spf1 a mx ip4:your-server-ip ~all"</code>
+                      </div>
+                      
+                      <div>
+                        <h4 class="font-medium text-gray-900">DMARC记录配置（可选）</h4>
+                        <p class="text-sm text-gray-600 mb-2">添加DMARC记录提高邮件安全性：</p>
+                        <code class="bg-gray-100 px-2 py-1 rounded text-sm">_dmarc TXT "v=DMARC1; p=quarantine; rua=mailto:admin@yourdomain.com"</code>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 服务器信息 -->
+                  <div class="bg-white border rounded-lg p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">服务器配置</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700">SMTP端口</label>
+                        <input type="text" value="25" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700">IMAP端口</label>
+                        <input type="text" value="143" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700">Web管理端口</label>
+                        <input type="text" value="3000" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700">API端点</label>
+                        <input type="text" value="/api" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- API令牌管理 -->
+                  <div class="bg-white border rounded-lg p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">API令牌管理</h3>
                     <p class="text-sm text-gray-600 mb-4">修改API访问令牌，用于认证外部API调用</p>
                     
                     <form @submit.prevent="updateToken" class="space-y-4">
@@ -550,10 +724,10 @@
                     </form>
                   </div>
 
-                  <!-- API文档 -->
+                  <!-- API文档链接 -->
                   <div class="bg-white border rounded-lg p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">API文档</h3>
-                    <p class="text-sm text-gray-600 mb-4">查看完整的API使用说明</p>
+                    <p class="text-sm text-gray-600 mb-4">查看完整的API使用说明和示例</p>
                     <a 
                       href="/api/docs" 
                       target="_blank"
@@ -570,8 +744,6 @@
         </div>
       </main>
     </div>
-
-    <!-- 模态框组件会在这里添加 -->
   </div>
 
   <script src="app.js"></script>

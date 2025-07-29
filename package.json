@@ -1,45 +1,37 @@
 {
-  "name": "easy-mail-system",
+  "name": "domain-mail-server",
   "version": "1.0.0",
-  "description": "简易邮件系统 - 管理端和后端",
+  "description": "自建域名邮件服务器系统 - 完整的SMTP/IMAP邮件服务器",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "setup": "node setup.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "smtp": "node smtp-server.js",
+    "imap": "node imap-server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "sqlite3": "^5.1.6",
-    "nodemailer": "^6.9.7",
-    "imap": "^0.8.19",
+    "smtp-server": "^3.13.0",
+    "imap-server": "^1.0.5",
     "mailparser": "^3.6.5",
     "cors": "^2.8.5",
     "body-parser": "^1.20.2",
-    "multer": "^1.4.5-lts.1",
     "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
     "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.5"
+    "express-rate-limit": "^7.1.5",
+    "nodemailer": "^6.9.7",
+    "fs-extra": "^11.1.1",
+    "uuid": "^9.0.1",
+    "crypto": "^1.0.1",
+    "moment": "^2.29.4"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["mail", "email", "system", "admin", "webhook", "smtp", "imap"],
+  "keywords": ["mail-server", "smtp", "imap", "domain", "email-hosting", "self-hosted"],
   "author": "Your Name",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yourusername/easy-mail-system.git"
-  },
-  "bugs": {
-    "url": "https://github.com/yourusername/easy-mail-system/issues"
-  },
-  "homepage": "https://github.com/yourusername/easy-mail-system#readme",
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=7.0.0"
-  }
+  "license": "MIT"
 } 

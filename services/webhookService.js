@@ -2,32 +2,36 @@ const axios = require('axios');
 const { getDB } = require('../database/init');
 
 class WebhookService {
-  // 执行所有活跃的 webhooks
-  async executeWebhooks(emailId, emailData) {
-    const webhooks = await this.getActiveWebhooks();
+  // 触发所有相关的 webhooks
+  async triggerWebhooks(eventType, emailId, emailData) {
+    const webhooks = await this.getActiveWebhooks(eventType);
     
     if (webhooks.length === 0) {
-      console.log('没有配置活跃的 webhook');
+      console.log(`没有配置 ${eventType} 事件的 webhook`);
       return;
     }
 
-    console.log(`触发 ${webhooks.length} 个 webhook 回调`);
+    console.log(`触发 ${webhooks.length} 个 ${eventType} webhook 回调`);
 
     // 并行执行所有 webhooks
     const promises = webhooks.map(webhook => 
-      this.executeWebhook(webhook, emailId, emailData)
+      this.executeWebhook(webhook, emailId, emailData, eventType)
     );
 
     await Promise.allSettled(promises);
   }
 
-  // 获取活跃的 webhooks
-  async getActiveWebhooks() {
+  // 获取指定事件类型的活跃 webhooks
+  async getActiveWebhooks(eventType) {
     const db = getDB();
     
     return new Promise((resolve, reject) => {
       db.all(
-        'SELECT * FROM webhook_configs WHERE is_active = 1',
+        `SELECT * FROM webhook_configs 
+         WHERE is_active = 1 AND (
+           trigger_events = '*' OR 
+           trigger_events LIKE '%${eventType}%'
+         )`,
         [],
         (err, rows) => {
           if (err) {
@@ -42,7 +46,7 @@ class WebhookService {
   }
 
   // 执行单个 webhook
-  async executeWebhook(webhook, emailId, emailData) {
+  async executeWebhook(webhook, emailId, emailData, eventType) {
     const maxRetries = webhook.retry_count || 3;
     let attempt = 0;
     
@@ -50,10 +54,10 @@ class WebhookService {
       attempt++;
       
       try {
-        const response = await this.sendWebhookRequest(webhook, emailData);
+        const response = await this.sendWebhookRequest(webhook, emailData, eventType);
         
         // 记录成功
-        await this.logWebhookExecution(webhook.id, emailId, {
+        await this.logWebhookExecution(webhook.id, emailId, eventType, {
           status: 'success',
           responseCode: response.status,
           responseBody: JSON.stringify(response.data).substring(0, 1000),
@@ -68,7 +72,7 @@ class WebhookService {
         
         if (attempt >= maxRetries) {
           // 记录最终失败
-          await this.logWebhookExecution(webhook.id, emailId, {
+          await this.logWebhookExecution(webhook.id, emailId, eventType, {
             status: 'failed',
             responseCode: error.response?.status || 0,
             errorMessage: error.message,
@@ -83,10 +87,11 @@ class WebhookService {
   }
 
   // 发送 webhook 请求
-  async sendWebhookRequest(webhook, emailData) {
+  async sendWebhookRequest(webhook, emailData, eventType) {
     const headers = {
       'Content-Type': 'application/json',
-      'User-Agent': 'EasyMailSystem/1.0'
+      'User-Agent': 'DomainMailServer/1.0',
+      'X-Webhook-Event': eventType
     };
 
     // 添加自定义头部
@@ -99,11 +104,39 @@ class WebhookService {
       }
     }
 
+    // 构建webhook数据
+    const webhookData = {
+      event: eventType,
+      timestamp: new Date().toISOString(),
+      webhook: {
+        id: webhook.id,
+        name: webhook.name
+      },
+      email: {
+        id: emailData.emailId || emailData.id,
+        messageId: emailData.messageId,
+        from: emailData.from,
+        to: emailData.to,
+        subject: emailData.subject,
+        date: emailData.date || emailData.received_at,
+        size: emailData.size || emailData.size_bytes
+      }
+    };
+
+    // 对于接收邮件事件，添加更多详情
+    if (eventType === 'email_received') {
+      webhookData.email.text = emailData.text || emailData.content_text;
+      webhookData.email.html = emailData.html || emailData.content_html;
+      webhookData.email.attachments = emailData.attachments ? 
+        (typeof emailData.attachments === 'string' ? 
+          JSON.parse(emailData.attachments) : emailData.attachments) : [];
+    }
+
     const config = {
       method: webhook.method || 'POST',
       url: webhook.url,
       headers,
-      data: emailData,
+      data: webhookData,
       timeout: (webhook.timeout || 30) * 1000,
       validateStatus: (status) => status >= 200 && status < 300
     };
@@ -112,20 +145,21 @@ class WebhookService {
   }
 
   // 记录 webhook 执行结果
-  async logWebhookExecution(webhookId, emailId, logData) {
+  async logWebhookExecution(webhookId, emailId, eventType, logData) {
     const db = getDB();
     
     return new Promise((resolve, reject) => {
       const stmt = db.prepare(`
         INSERT INTO webhook_logs (
-          webhook_id, email_id, status, response_code, 
+          webhook_id, email_id, event_type, status, response_code, 
           response_body, error_message, attempt_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run([
         webhookId,
         emailId,
+        eventType,
         logData.status,
         logData.responseCode || null,
         logData.responseBody || null,
@@ -147,20 +181,26 @@ class WebhookService {
   // 创建或更新 webhook 配置
   async saveWebhookConfig(webhookData) {
     const db = getDB();
-    const { id, name, url, method, headers, isActive, retryCount, timeout } = webhookData;
+    const { 
+      id, name, url, method, headers, triggerEvents, 
+      isActive, retryCount, timeout 
+    } = webhookData;
     
     return new Promise((resolve, reject) => {
       if (id) {
         // 更新现有配置
         const stmt = db.prepare(`
           UPDATE webhook_configs SET 
-            name = ?, url = ?, method = ?, headers = ?,
+            name = ?, url = ?, method = ?, headers = ?, trigger_events = ?,
             is_active = ?, retry_count = ?, timeout = ?,
             updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `);
         
-        stmt.run([name, url, method, headers, isActive, retryCount, timeout, id], function(err) {
+        stmt.run([
+          name, url, method, headers, triggerEvents,
+          isActive, retryCount, timeout, id
+        ], function(err) {
           if (err) reject(err);
           else resolve({ id, updated: true });
         });
@@ -170,11 +210,15 @@ class WebhookService {
         // 创建新配置
         const stmt = db.prepare(`
           INSERT INTO webhook_configs (
-            name, url, method, headers, is_active, retry_count, timeout
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            name, url, method, headers, trigger_events,
+            is_active, retry_count, timeout
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
         
-        stmt.run([name, url, method, headers, isActive, retryCount, timeout], function(err) {
+        stmt.run([
+          name, url, method, headers, triggerEvents,
+          isActive, retryCount, timeout
+        ], function(err) {
           if (err) reject(err);
           else resolve({ id: this.lastID, created: true });
         });
@@ -238,22 +282,18 @@ class WebhookService {
 
       // 构造测试数据
       const testData = {
-        test: true,
         emailId: 'test',
         messageId: 'test-message-id',
-        account: {
-          id: 1,
-          email: 'test@example.com'
-        },
-        from: { text: 'sender@example.com' },
-        to: { text: 'receiver@example.com' },
+        from: 'test@example.com',
+        to: 'recipient@example.com',
         subject: 'Webhook 测试邮件',
         text: '这是一个 webhook 测试',
-        timestamp: new Date().toISOString()
+        date: new Date().toISOString(),
+        size: 100
       };
 
       // 发送测试请求
-      const response = await this.sendWebhookRequest(webhook, testData);
+      const response = await this.sendWebhookRequest(webhook, testData, 'test_event');
       
       return {
         success: true,
@@ -278,10 +318,9 @@ class WebhookService {
     
     return new Promise((resolve, reject) => {
       let query = `
-        SELECT wl.*, wc.name as webhook_name, e.subject as email_subject
+        SELECT wl.*, wc.name as webhook_name
         FROM webhook_logs wl
         LEFT JOIN webhook_configs wc ON wl.webhook_id = wc.id
-        LEFT JOIN emails e ON wl.email_id = e.id
       `;
       
       const params = [];
@@ -310,4 +349,15 @@ class WebhookService {
   }
 }
 
-module.exports = new WebhookService(); 
+// 创建单例实例
+const webhookService = new WebhookService();
+
+// 便捷函数
+async function triggerWebhooks(eventType, emailId, emailData) {
+  return await webhookService.triggerWebhooks(eventType, emailId, emailData);
+}
+
+module.exports = {
+  webhookService,
+  triggerWebhooks
+}; 

@@ -1,49 +1,9 @@
 const express = require('express');
-const emailSender = require('../services/emailSender');
 const { getDB } = require('../database/init');
+const { buildRawEmail, calculateEmailSize } = require('../utils/email-parser');
+const nodemailer = require('nodemailer');
 
 const router = express.Router();
-
-// API文档
-router.get('/docs', (req, res) => {
-  res.json({
-    title: 'Easy Mail System API',
-    version: '1.0.0',
-    description: '简易邮件系统公开API',
-    endpoints: {
-      'POST /api/send': {
-        description: '发送邮件',
-        headers: {
-          'Authorization': 'Bearer YOUR_API_TOKEN',
-          'Content-Type': 'application/json'
-        },
-        body: {
-          accountId: 'number - 邮件账户ID',
-          to: 'string|array - 收件人邮箱',
-          cc: 'string - 抄送邮箱 (可选)',
-          bcc: 'string - 密送邮箱 (可选)',
-          subject: 'string - 邮件主题',
-          text: 'string - 纯文本内容 (可选)',
-          html: 'string - HTML内容 (可选)',
-          attachments: 'array - 附件列表 (可选)'
-        }
-      },
-      'POST /api/send/bulk': {
-        description: '批量发送邮件',
-        headers: {
-          'Authorization': 'Bearer YOUR_API_TOKEN',
-          'Content-Type': 'application/json'
-        },
-        body: {
-          emails: 'array - 邮件列表，每个元素包含上述邮件字段'
-        }
-      },
-      'GET /api/health': {
-        description: '健康检查'
-      }
-    }
-  });
-});
 
 // API身份验证中间件
 function authenticateAPI(req, res, next) {
@@ -81,11 +41,159 @@ function authenticateAPI(req, res, next) {
   db.close();
 }
 
+// API文档
+router.get('/docs', (req, res) => {
+  res.json({
+    title: 'Domain Mail Server API',
+    version: '1.0.0',
+    description: '自建域名邮件服务器API',
+    endpoints: {
+      'POST /api/send': {
+        description: '发送邮件',
+        headers: {
+          'Authorization': 'Bearer YOUR_API_TOKEN',
+          'Content-Type': 'application/json'
+        },
+        body: {
+          from: 'string - 发件人邮箱（必须是本域名下的邮箱）',
+          to: 'string|array - 收件人邮箱',
+          cc: 'string - 抄送邮箱 (可选)',
+          bcc: 'string - 密送邮箱 (可选)',
+          subject: 'string - 邮件主题',
+          text: 'string - 纯文本内容 (可选)',
+          html: 'string - HTML内容 (可选)',
+          attachments: 'array - 附件列表 (可选)'
+        }
+      },
+      'POST /api/send/bulk': {
+        description: '批量发送邮件',
+        headers: {
+          'Authorization': 'Bearer YOUR_API_TOKEN',
+          'Content-Type': 'application/json'
+        },
+        body: {
+          emails: 'array - 邮件列表，每个元素包含上述邮件字段'
+        }
+      },
+      'GET /api/accounts': {
+        description: '获取可用邮箱账户列表'
+      },
+      'GET /api/health': {
+        description: '健康检查'
+      }
+    }
+  });
+});
+
+// 验证邮箱账户
+async function validateAccount(email) {
+  const db = getDB();
+  
+  return new Promise((resolve, reject) => {
+    db.get(
+      `SELECT ma.*, d.domain 
+       FROM mail_accounts ma
+       JOIN domains d ON ma.domain_id = d.id
+       WHERE ma.email = ? AND ma.is_active = 1 AND d.is_active = 1`,
+      [email],
+      (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row);
+        }
+        db.close();
+      }
+    );
+  });
+}
+
+// 保存发送的邮件
+async function saveOutgoingEmail(emailData) {
+  const db = getDB();
+  
+  return new Promise((resolve, reject) => {
+    const stmt = db.prepare(`
+      INSERT INTO emails (
+        message_id, account_id, folder, from_address, to_addresses,
+        cc_addresses, bcc_addresses, subject, content_text, content_html,
+        attachments, size_bytes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    stmt.run([
+      emailData.messageId,
+      emailData.accountId,
+      'Sent',
+      emailData.from,
+      JSON.stringify(Array.isArray(emailData.to) ? emailData.to : [emailData.to]),
+      JSON.stringify(emailData.cc ? [emailData.cc] : []),
+      JSON.stringify(emailData.bcc ? [emailData.bcc] : []),
+      emailData.subject,
+      emailData.text,
+      emailData.html,
+      JSON.stringify(emailData.attachments || []),
+      emailData.size || 0
+    ], function(err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(this.lastID);
+      }
+    });
+    
+    stmt.finalize();
+    db.close();
+  });
+}
+
+// 通过本地SMTP发送邮件
+async function sendEmailViaSMTP(emailData) {
+  // 创建到本地SMTP服务器的连接
+  const transporter = nodemailer.createTransporter({
+    host: 'localhost',
+    port: process.env.SMTP_PORT || 25,
+    secure: false,
+    auth: {
+      user: emailData.from,
+      pass: 'smtp-api-key' // 这里需要实现API密钥认证
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+
+  const mailOptions = {
+    from: emailData.from,
+    to: Array.isArray(emailData.to) ? emailData.to.join(',') : emailData.to,
+    subject: emailData.subject,
+    text: emailData.text,
+    html: emailData.html
+  };
+
+  if (emailData.cc) mailOptions.cc = emailData.cc;
+  if (emailData.bcc) mailOptions.bcc = emailData.bcc;
+  if (emailData.attachments && emailData.attachments.length > 0) {
+    mailOptions.attachments = emailData.attachments;
+  }
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    return {
+      success: true,
+      messageId: info.messageId,
+      response: info.response
+    };
+  } catch (error) {
+    throw new Error(`SMTP发送失败: ${error.message}`);
+  }
+}
+
 // 发送邮件
 router.post('/send', authenticateAPI, async (req, res) => {
   try {
     const {
-      accountId,
+      from,
       to,
       cc,
       bcc,
@@ -96,10 +204,10 @@ router.post('/send', authenticateAPI, async (req, res) => {
     } = req.body;
 
     // 参数验证
-    if (!accountId || !to || !subject) {
+    if (!from || !to || !subject) {
       return res.status(400).json({
         error: '参数错误',
-        message: 'accountId, to, subject 为必填参数'
+        message: 'from, to, subject 为必填参数'
       });
     }
 
@@ -110,23 +218,45 @@ router.post('/send', authenticateAPI, async (req, res) => {
       });
     }
 
-    // 发送邮件
-    const result = await emailSender.sendEmail({
-      accountId,
+    // 验证发件人账户
+    const account = await validateAccount(from);
+    if (!account) {
+      return res.status(400).json({
+        error: '发件人验证失败',
+        message: '发件人邮箱不存在或未激活'
+      });
+    }
+
+    // 构建邮件数据
+    const emailData = {
+      from,
       to,
       cc,
       bcc,
       subject,
       text,
       html,
-      attachments
-    });
+      attachments,
+      accountId: account.id,
+      messageId: `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${account.domain}>`
+    };
+
+    // 计算邮件大小
+    emailData.size = calculateEmailSize(emailData);
+
+    // 发送邮件
+    const result = await sendEmailViaSMTP(emailData);
+    
+    // 保存到数据库
+    const emailId = await saveOutgoingEmail(emailData);
+
+    console.log(`✅ API邮件发送成功: ${result.messageId}`);
 
     res.json({
       success: true,
       message: '邮件发送成功',
       data: {
-        emailId: result.emailId,
+        emailId,
         messageId: result.messageId
       }
     });
@@ -155,10 +285,10 @@ router.post('/send/bulk', authenticateAPI, async (req, res) => {
     // 验证每个邮件的参数
     for (let i = 0; i < emails.length; i++) {
       const email = emails[i];
-      if (!email.accountId || !email.to || !email.subject) {
+      if (!email.from || !email.to || !email.subject) {
         return res.status(400).json({
           error: '参数错误',
-          message: `邮件 ${i + 1}: accountId, to, subject 为必填参数`
+          message: `邮件 ${i + 1}: from, to, subject 为必填参数`
         });
       }
       if (!email.text && !email.html) {
@@ -169,8 +299,49 @@ router.post('/send/bulk', authenticateAPI, async (req, res) => {
       }
     }
 
-    // 批量发送
-    const results = await emailSender.sendBulkEmails(emails);
+    const results = [];
+    
+    for (let i = 0; i < emails.length; i++) {
+      try {
+        const emailData = emails[i];
+        
+        // 验证发件人账户
+        const account = await validateAccount(emailData.from);
+        if (!account) {
+          results.push({
+            success: false,
+            error: '发件人验证失败',
+            index: i
+          });
+          continue;
+        }
+
+        // 构建邮件数据
+        emailData.accountId = account.id;
+        emailData.messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${account.domain}>`;
+        emailData.size = calculateEmailSize(emailData);
+
+        // 发送邮件
+        const result = await sendEmailViaSMTP(emailData);
+        
+        // 保存到数据库
+        const emailId = await saveOutgoingEmail(emailData);
+
+        results.push({
+          success: true,
+          emailId,
+          messageId: result.messageId,
+          index: i
+        });
+        
+      } catch (error) {
+        results.push({
+          success: false,
+          error: error.message,
+          index: i
+        });
+      }
+    }
 
     const successCount = results.filter(r => r.success).length;
     const failCount = results.length - successCount;
@@ -195,12 +366,16 @@ router.post('/send/bulk', authenticateAPI, async (req, res) => {
   }
 });
 
-// 获取邮件账户列表（仅返回基本信息）
+// 获取可用邮箱账户列表
 router.get('/accounts', authenticateAPI, (req, res) => {
   const db = getDB();
   
   db.all(
-    'SELECT id, email, smtp_host, is_active FROM mail_accounts WHERE is_active = 1',
+    `SELECT ma.id, ma.email, d.domain, ma.is_active
+     FROM mail_accounts ma
+     JOIN domains d ON ma.domain_id = d.id
+     WHERE ma.is_active = 1 AND d.is_active = 1
+     ORDER BY ma.email`,
     [],
     (err, rows) => {
       if (err) {
@@ -217,12 +392,60 @@ router.get('/accounts', authenticateAPI, (req, res) => {
   db.close();
 });
 
-// 获取发送统计
+// 获取域名列表
+router.get('/domains', authenticateAPI, (req, res) => {
+  const db = getDB();
+  
+  db.all(
+    'SELECT domain, mx_record, is_active FROM domains WHERE is_active = 1',
+    [],
+    (err, rows) => {
+      if (err) {
+        console.error('获取域名列表失败:', err);
+        return res.status(500).json({ error: '服务器错误' });
+      }
+
+      res.json({
+        success: true,
+        data: rows
+      });
+    }
+  );
+  db.close();
+});
+
+// 获取邮件发送统计
 router.get('/stats', authenticateAPI, async (req, res) => {
   try {
-    const { accountId, days = 7 } = req.query;
+    const { from = '', days = 7 } = req.query;
+    const db = getDB();
     
-    const stats = await emailSender.getEmailStats(accountId ? parseInt(accountId) : null);
+    const stats = await new Promise((resolve, reject) => {
+      let query = `
+        SELECT 
+          DATE(received_at) as date,
+          COUNT(*) as count
+        FROM emails 
+        WHERE folder = 'Sent' AND received_at >= datetime('now', '-${parseInt(days)} days')
+      `;
+      
+      const params = [];
+      if (from) {
+        query += ' AND from_address = ?';
+        params.push(from);
+      }
+      
+      query += ' GROUP BY DATE(received_at) ORDER BY date DESC';
+      
+      db.all(query, params, (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+        db.close();
+      });
+    });
     
     res.json({
       success: true,
@@ -242,8 +465,12 @@ router.get('/stats', authenticateAPI, async (req, res) => {
 router.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'Easy Mail System API',
-    timestamp: new Date().toISOString()
+    service: 'Domain Mail Server API',
+    timestamp: new Date().toISOString(),
+    services: {
+      smtp: process.env.SMTP_STATUS || 'unknown',
+      imap: process.env.IMAP_STATUS || 'unknown'
+    }
   });
 });
 
