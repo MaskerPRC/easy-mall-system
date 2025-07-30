@@ -76,7 +76,7 @@
               link 
               type="danger" 
               @click="deleteAccount(row)"
-              :disabled="row.is_admin"
+              :disabled="!!row.is_admin"
             >
               删除
             </el-button>
