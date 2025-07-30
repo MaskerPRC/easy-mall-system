@@ -1,37 +1,40 @@
 {
-  "name": "domain-mail-server",
-  "version": "1.0.0",
-  "description": "自建域名邮件服务器系统 - 完整的SMTP/IMAP邮件服务器",
-  "main": "server.js",
+  "name": "easy-mail-system",
+  "version": "2.0.0",
+  "description": "完整的SMTP/IMAP邮件服务器系统 - 前后端分离版本",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "setup": "node setup.js",
-    "smtp": "node smtp-server.js",
-    "imap": "node imap-server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "sqlite3": "^5.1.6",
-    "smtp-server": "^3.13.0",
-    "imap-server": "^1.0.5",
-    "mailparser": "^3.6.5",
-    "cors": "^2.8.5",
-    "body-parser": "^1.20.2",
-    "axios": "^1.6.0",
-    "bcryptjs": "^2.4.3",
-    "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.5",
-    "nodemailer": "^6.9.7",
-    "fs-extra": "^11.1.1",
-    "uuid": "^9.0.1",
-    "crypto": "^1.0.1",
-    "moment": "^2.29.4"
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "start": "npm run backend:start",
+    "build": "npm run frontend:build",
+    "setup": "npm run backend:setup",
+    "backend:dev": "cd backend && npm run dev",
+    "backend:start": "cd backend && npm start",
+    "backend:setup": "cd backend && npm run setup",
+    "backend:install": "cd backend && npm install",
+    "frontend:dev": "cd admin && npm run dev", 
+    "frontend:build": "cd admin && npm run build",
+    "frontend:preview": "cd admin && npm run preview",
+    "frontend:install": "cd admin && npm install",
+    "install:all": "npm run backend:install && npm run frontend:install",
+    "postinstall": "npm run install:all"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "concurrently": "^8.2.2"
   },
-  "keywords": ["mail-server", "smtp", "imap", "domain", "email-hosting", "self-hosted"],
+  "keywords": [
+    "mail-server", 
+    "smtp", 
+    "imap", 
+    "vue", 
+    "vite", 
+    "email", 
+    "self-hosted"
+  ],
   "author": "Your Name",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
 } 
