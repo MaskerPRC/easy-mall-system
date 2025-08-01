@@ -22,6 +22,11 @@ easy-mail-system/
 └── logs/                 # 日志文件
 ```
 
+## 👀欢迎加入微信交流群
+https://100.agitao.net/
+
+![100个AI产品交流群](https://github.com/user-attachments/assets/c92c830c-5422-464d-a516-c86656a15188)
+
 ## 🌟 技术栈
 
 ### 后端 (Backend)
